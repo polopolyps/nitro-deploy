@@ -1,113 +1,84 @@
 nitro-deploy
 ============
 
-Deploy script suite compatible with Nitro project (>10.6)
+Deploy script suite compatible with Nitro project (>10.6).
 
-This deploy script suite is not likely to work for your production/stage environment unless you fire your editor and adapt it to your configuration... consider this suite just  as starting point from which you can build your own deploy logic.
-
-There's also a lot that can be improved in the scripts, nonetheless they have proved to be solid and we have used them on a daily basis for the Espresso.it project. Be aware that some of the deploy steps are specific for Espresso.it production environment (eg Disaster Recovery deploy & custom webservices).  
-
-Production setup
-================
-
-We assume that you have a simplistic production environment made of the following servers:
-
-* jboss
-* frontend(s)
-* admin
-* search
-* db
-
-Note that there's no statistic/poll modules in our setup.
-
-First thing first you should make sure that the script suite is copied on *all* your servers in /opt/polopoly/scripts, you might want to have a way of syncing these automatically (svn, shared mount) since you will be likely to change the scripts quite often and it is vital that they are in sync.
-
-The reason why we deploy the release scripts to all servers is that, even if you run the ./perform_release.sh script from jboss, the script will in turn call scripts on external nodes, through ssh. You should also make sure to distribute ssh-keys from jboss to all your servers, otherwise the release script will stop and prompt for password each time it executes a remote script.
-
-We assume that you use the Nitro assembly descriptor to create your release, in other words your release jar should look something like:
-
-    dist/
-    |-- README.txt
-    |-- contentdata
-    |   |-- admin-gui-10.6.0-bc91117-contentdata.jar
-    |   |-- baseline-2.0.4-contentdata.jar
-    |   |-- environment-prod-content-1.0-SNAPSHOT-contentdata.jar
-    |   |-- espresso-content-1.0-SNAPSHOT-contentdata.jar
-    |   |-- espresso-source-1.0-SNAPSHOT-contentdata.jar
-    |   |-- google-maps-1.0-SNAPSHOT-contentdata.jar
-    |   |-- greenfieldtimes-content-10.6.0-bc91117-contentdata.jar
-    |   |-- inbox-control-10.6.0-bc91117-activate-contentdata.jar
-    |   |-- init-xml-10.6.0-bc91117-contentdata.jar
-    |   |-- interactive-preview-10.6.0-bc91117-contentdata.jar
-    |   |-- moderation-gui-10.6.0-bc91117-contentdata.jar
-    |   |-- repubblicatv-1.0-SNAPSHOT-contentdata.jar
-    |   `-- twitter-plugin-2.0.1-contentdata.jar
-    |-- deployment-cm
-    |   |-- cm-server-10.6.0-bc91117.ear
-    |   |-- connection-properties-10.6.0-bc91117.war
-    |   `-- content-hub.war
-    |-- deployment-config
-    |   |-- config.zip
-    |   |-- importOrder.txt
-    |   |-- polopoly-cli.jar
-    |   |-- polopoly-imports.jar
-    |   |-- project-imports.jar
-    |   `-- solr-home.zip
-    |-- deployment-front
-    |   |-- ROOT.war
-    |   `-- solr.war
-    |-- deployment-polopoly-gui
-    |   |-- ROOT.war
-    |   |-- activeMQ.war
-    |   |-- custom-ws.war
-    |   `-- polopoly.war
-    |-- deployment-servers
-    |   |-- solr-indexer.war
-    |   `-- solr.war
-    |-- lib-client
-    |   |-- SSO_servlet-1.0-SNAPSHOT.jar
-    |   |-- abdera-client-1.0.jar
-    |   |-- abdera-core-1.0.jar
-    |   |-- ...
-    |   `-- xstream-1.3.1.jar
-    `-- lib-polopoly
-        `-- polopoly-10.6.0-bc91117.jar
-    
+NB: This suite of scripts should be used as example and configured as necessary to work in the required environments.
 
 
-Release 
-=======
+Requirements
+============
 
-In our project we have set up a Jenkins job that execute the following maven task:
+These scripts require un-prompted SSH access to all the required machines using the configured user account.
 
-    mvn clean install p:assemble-dist -DtargetEnv=prod
+This can be set-up using for example:
 
-When the build is completed, it uploads the distribution file to an FTP server within the DMZ of our production network.
+ssh-copy-id polopoly@gui-server
 
-The first step is to download the release dist to the Jboss node:
+Also, it requires that the given account also has the privileges on the target machines to be able to stop & stop tomcat using the command
 
-    local ~$> ssh user@jboss.prod
-    
-    jboss.prod ~$> cd /opt/polopoly/scripts
-    
-    jboss.prod /opt/polopoly/scripts$> ./download_dist.sh
-    // interactive //
+/etc/init.d/tomcat stop | start
+/etc/init.d/jboss stop | start
+
+Also, the user defined must have the necessary privileges to be able to copy files into the jboss & tomcat file structure.
+
+Tomcat & Jboss must already have been installed & configured
+
+For Varnish integration, the script will attempt to connect to the configured Varnish hosts to set the fronts to sick before
+they are stopped. The polopoly user must have the ability to run the following command without being prompted for a password:
+
+sudo varnishadm -T $VARNISH_ADM_URL -S $VARNISH_ADM_SECRET backend.set_health $1 $2
+
+To disable this feature, just set the list of Varnish hosts to be empty. 
 
 
-Once download is completed we can start the release suite:
+e.g. for Jboss, configure run.conf:
 
+Add the following to JAVA_OPTS
+-DconnectionPropertiesFile=/home/polopoly/config/connection.properties
+-Dp.ejbConfigurationUrl=file:///home/polopoly/config/ejb-configuration.properties
+-Dp.connectionPropertiesUrl=http://cm-server:8081/connection-properties/connection.properties
+-Djava.rmi.server.hostname=cm-server
 
-    jboss.prod /opt/polopoly/scripts$> ./perform_release.sh
-    ....  unpacking the release, stop remote servers, distribute WARs ...
-    The release is finished!
+For JBOSS ensure that it is started with the options:
+-b 0.0.0.0 -Djboss.server.log.dir=<logfolder>
+
+For tomcat, ensure that it is started with the following parameters set,
+preferably by changing e.g. /etc/tomcat-init.cfg or /etc/default/tomcat7 or in tomcat/bin/setenv.sh
+
+For all tomcat instances:
+-Dp.connectionPropertiesUrl=http://cm-server:8081/connection-properties/connection.properties
+
+For tomcat instances running SOLR:
+-Dsolr.solr.home=/opt/filedata/solr
+-Dsolr.is.slave=true (for a slave solr tomcat)
+-Dsolr.is.master=true (for a master solr tomcat)
+
+For tomcat instance running the statistics-server
+-DstatisticsBaseDirectory=/opt/filedata
 
 
 
-Multiple environments
-=====================
+Usage
+=====
+Use the assemble-dist.sh script to create the necessary build artifacts from the source folder.
+NB: It is currently only possible to create one set of build artifacts at a time.
 
-Support for multiple environments is based on an assumption on the hostnames: the environemnt group should be defined in the 2 level of the host name, so for instance jboss.prod.foo and fe1.prod.foo belongs to the *prod* environment.
+This script will be executed from the same server that the assemble-dist.sh is executed from.
 
-Each environment should define its conf file in ./deploy/$ENV.config, this file will be automatically sourced in all the scripts. In other words if you run the release from jboss.prod.foo, the release scripts will source the configuration file ./deploy/prod.config.
+If the production system is not accessible, then you will need to FTP the the distribution into
+a folder available on the production server that is capable of distributing the artefacts to all
+other servers.
 
-If the naming convention on the hostname doesn't suit your environment, you can change how configuration files are resolved in ./deploy/config.sh  
+The assemble-dist.sh accepts a single parameter, which is the name of the profile to build.
+
+Once the distribution has been created and is in the location specified by the relevant profile
+configuration (see variable RELEASEDIRECTORY in the config files) then the perform_release.sh
+script can be executed.
+
+It accepts two parameters
+Param1 : The profile to use, there must be a similarly named config file in the same folder.
+Param2 : Optional Starting Step number. Useful if a step fails for some reason and you want to restart from where it left off.
+
+For documentation on the config files see the comments in polopolydev.config
+
