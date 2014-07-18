@@ -6,8 +6,8 @@ CONFIG_FILE="$BASEPATH/config.sh"
 source $CONFIG_FILE
 
 
-ssh $POLOPOLY_USER@$JBOSS_HOST /etc/init.d/jboss "stop"
-
+ssh $POLOPOLY_USER@$JBOSS_HOST $JBOSS_STOP_COMMAND
+[ $? -eq 0 ] || die "Failed to stop Jboss"
 
 # Remove the old instances first, just in case the new ones have a different name/version
 ssh $POLOPOLY_USER@$JBOSS_HOST rm $JBOSS_HOME/server/default/deploy/polopoly/cm-server*.ear
@@ -18,13 +18,7 @@ ssh $POLOPOLY_USER@$JBOSS_HOST rm $JBOSS_HOME/server/default/deploy/polopoly/con
 scp -Brp $RELEASEDIRECTORY/deployment-cm/* $POLOPOLY_USER@$JBOSS_HOST:$JBOSS_HOME/server/default/deploy/polopoly/.
 
 
-ssh $POLOPOLY_USER@$JBOSS_HOST /etc/init.d/jboss "start"
+ssh $POLOPOLY_USER@$JBOSS_HOST $JBOSS_START_COMMAND
 
-if [ "$?" == "0" ]
-  then
-    echo "Copied cm server ear, connection properties war and content hub war to jboss"
-  else
-    echo "Failed to copy cm server ear, connection properties war and content hub war"
-    exit 1
-fi
+[ $? -eq 0 ] || die "Failed to restart Jboss"
  

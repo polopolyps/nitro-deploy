@@ -15,11 +15,10 @@ function setFrontinVarnish {
     do
         echo "Setting $1 to $2 on $VARNISH_SERVER"
         ssh $POLOPOLY_USER@$VARNISH_SERVER sudo varnishadm -T $VARNISH_ADM_URL -S $VARNISH_ADM_SECRET backend.set_health $1 $2
+        [ $? -eq 0 ] || die "Failed to set front to sick"
     done
 
 }
-
-TOMCAT_CONFIG_FILES=(server.xml context.xml logging.properties)
 
 unzip -oq $RELEASEDIRECTORY/deployment-config/config.zip -d $RELEASEDIRECTORY/deployment-config/config
 
@@ -32,16 +31,20 @@ do
 
   setFrontinVarnish $VARNISH_NAME "sick"
 
-  ssh $POLOPOLY_USER@$FRONT sudo /etc/init.d/$TOMCAT_NAME stop
+  ssh $POLOPOLY_USER@$FRONT sudo /etc/init.d/$TOMCAT_NAME stop $POLOPOLY_USER
+
+  [ $? -eq 0 ] || die "Failed to stop tomcat on remote server ($FRONT)"
+
   ssh $POLOPOLY_USER@$FRONT sudo rm -rf $TOMCAT_HOME/webapps/*
+  [ $? -eq 0 ] || die "Failed to cleanup webapps folder"
+
   scp -B $RELEASEDIRECTORY/deployment-front/* $POLOPOLY_USER@$FRONT:$TOMCAT_HOME/webapps/.
 
+  [ $? -eq 0 ] || die "Failed to transfer WAR files"
 
   for CONFIG_FILE in ${TOMCAT_CONFIG_FILES[@]}
   do
-
       FILE="$RELEASEDIRECTORY/deployment-config/config/tomcat/conf/$CONFIG_FILE"
-
       if [ -e $FILE ]
       then
         echo "Deploying file $FILE"
@@ -49,7 +52,9 @@ do
       fi
   done
 
-  ssh $POLOPOLY_USER@$FRONT sudo /etc/init.d/$TOMCAT_NAME start
+  ssh $POLOPOLY_USER@$FRONT sudo /etc/init.d/$TOMCAT_NAME start $POLOPOLY_USER
+
+  [ $? -eq 0 ] || die "Failed to restart tomcat"
 
   for URL in ${FRONT_WARMING_URLS[@]}
   do
@@ -58,13 +63,4 @@ do
   done
 
   setFrontinVarnish $VARNISH_NAME "healthy"
-
-  if [ "$?" == "0" ]
-  then
-    echo "Stopped tomcat, deployed new front webapp and restarted tomcat ($FRONT)"
-  else
-    echo "Failed to stop tomcat, deploy new front webapp and restart tomcat ($FRONT)!"
-    exit 1
-  fi
-
 done

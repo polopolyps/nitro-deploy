@@ -9,6 +9,12 @@ MUSTBEDEFINED=(RELEASEDIRECTORY DEPLOYENVIRONMENT FRONT_SERVERS BACKEND_SERVERS 
 
 DEPLOY_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+if [ -z "$DEPLOYENVIRONMENT" ]
+  then
+    echo "DEPLOYENVIRONMENT has not been defined"
+    exit 1
+fi
+
 source $DEPLOY_DIR/$DEPLOYENVIRONMENT.config
 
 CONFIG_LOADED=true
@@ -30,6 +36,11 @@ WARNING=$COL_ORANGE"WARNING"$COL_RESET
 
 ##############################################
 # General functions
+
+die () {
+    echo -e $ERROR - $@
+    exit 1
+}
 
 
 # Demands confirmation from user to continue

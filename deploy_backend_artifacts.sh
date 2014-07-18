@@ -12,14 +12,14 @@ do
   IFS=';' read -ra DATA <<< "$ARTIFACT"
   FILENAME=${DATA[0]}
   HOST=${DATA[1]}
-  scp -B $RELEASEDIRECTORY/$FILENAME $POLOPOLY_USER@$HOST:$TOMCAT_HOME/webapps/.
+  FOLDER_NAME="${FILENAME%.*}"
+  echo "Removing old folder $TOMCAT_HOME/webapps/$FOLDER_NAME"
+  ssh $POLOPOLY_USER@$HOST rm -rf $TOMCAT_HOME/webapps/$FOLDER_NAME
 
-  if [ "$?" == "0" ]
-  then
-    echo "Deployed $FILENAME to $HOST"
-  else
-    echo "Failed to deploy $FILENAME to $HOST"
-    exit 1
-  fi
+  echo "Deploying $FILENAME to $HOST"
+  scp -B $RELEASEDIRECTORY/$FILENAME $POLOPOLY_USER@$HOST:$TOMCAT_HOME/webapps/.
+  [ $? -eq 0 ] || die "Failed to deploy $FILENAME"
+
+
 done
  

@@ -6,4 +6,4 @@ source $CONFIG_FILE
 
 IMPORT_FILE="$RELEASEDIRECTORY/deployment-config/project-imports.jar"
 echo "Importing from $IMPORT_FILE using $CONNECTION_URL"
-java -jar $RELEASEDIRECTORY/deployment-config/polopoly-cli.jar import -c $CONNECTION_URL $IMPORT_FILE
+java -jar $RELEASEDIRECTORY/deployment-config/polopoly-cli.jar import -p $SYSADMINPWD -c $CONNECTION_URL $IMPORT_FILE

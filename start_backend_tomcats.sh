@@ -8,12 +8,8 @@ source $CONFIG_FILE
 
 for SERVER in ${BACKEND_SERVERS[@]}
 do
-  ssh $POLOPOLY_USER@$SERVER sudo /etc/init.d/$TOMCAT_NAME start
-  if [ "$?" == "0" ]
-  then
-    echo "Started tomcat on remote server ($SERVER)"
-  else
-    echo "$ERROR Failed to start tomcat on remote server ($SERVER)"
-    exit 1
-  fi
+  echo "Started tomcat on remote server ($SERVER)"
+  ssh $POLOPOLY_USER@$SERVER sudo /etc/init.d/$TOMCAT_NAME start $POLOPOLY_USER
+  [ $? -eq 0 ] || die "Failed to stop tomcat on remote server ($SERVER)"
+
 done

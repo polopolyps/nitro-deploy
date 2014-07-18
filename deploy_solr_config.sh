@@ -16,13 +16,11 @@ do
   HOST=${DATA[0]}
   TYPE=${DATA[1]}
   INDEXES=${DATA[2]}
+
+  echo "Deploying indexes $INDEXES to $TYPE $HOST"
+
   scp -Brp $SOLR_HOME_SRC/$INDEXES $POLOPOLY_USER@$HOST:$SOLR_HOME/
 
-  if [ "$?" == "0" ]
-  then
-    echo "Deployed indexes $INDEXES to $TYPE $HOST"
-  else
-    echo "Failed to deploy $INDEXES to $TYPE $HOST"
-    exit 1
-  fi
+  [ $? -eq 0 ] || die "Failed to deploy index config"
+
 done
