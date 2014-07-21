@@ -5,13 +5,21 @@
 # Environment information is extracted from the hostname
 ################################################################
 
-DEPLOY_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-# expecting hostname in the form: jboss.stage.per
-CONFIG_PREFIX=`echo $HOSTNAME | cut -d"." -f2`
+MUSTBEDEFINED=(RELEASEDIRECTORY DEPLOYENVIRONMENT FRONT_SERVERS BACKEND_SERVERS SERVER_ARTIFACTS)
 
-source $DEPLOY_DIR/$CONFIG_PREFIX.config
+DEPLOY_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+if [ -z "$DEPLOYENVIRONMENT" ]
+  then
+    echo "DEPLOYENVIRONMENT has not been defined"
+    exit 1
+fi
+
+source $DEPLOY_DIR/$DEPLOYENVIRONMENT.config
 
 CONFIG_LOADED=true
+
+CONNECTION_URL="http://$JBOSS_HOST:8081/connection-properties/connection.properties"
 
 ###############################################
 # Non installation specific variables follows 
@@ -28,6 +36,11 @@ WARNING=$COL_ORANGE"WARNING"$COL_RESET
 
 ##############################################
 # General functions
+
+die () {
+    echo -e $ERROR - $@
+    exit 1
+}
 
 
 # Demands confirmation from user to continue
@@ -46,13 +59,12 @@ function getConfirmation {
 function waitForJboss {
     SLEEP_TIME=5
     MAX_TRIES=12
-    URL=http://$JBOSS_HOST:8081/connection-properties/connection.properties
     echo -n "Waiting for for Jboss to start: "
     while [ 1 = 1 ]; do
       [ $MAX_TRIES -eq 0 ] && echo " max wait exceeded. halting deploy!" && exit 1
       let MAX_TRIES-=1
       echo -n "."
-      curl $URL &>/dev/null
+      curl $CONNECTION_URL &>/dev/null
       [ $? -eq 0 ] && echo " Jboss is up!"  && return 0
       sleep 5
     done
