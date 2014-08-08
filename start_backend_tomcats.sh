@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Start remote tomcats on admin and search
 
 SCRIPTPATH="$(cd "${0%/*}" 2>/dev/null; echo "$PWD"/"${0##*/}")"

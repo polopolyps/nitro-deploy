@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 ################################################################
 # This script will source the correct configuration file 
 # for the current environment.
@@ -15,6 +15,7 @@ if [ -z "$DEPLOYENVIRONMENT" ]
     exit 1
 fi
 
+source $DEPLOY_DIR/common.config
 source $DEPLOY_DIR/$DEPLOYENVIRONMENT.config
 
 CONFIG_LOADED=true
@@ -120,3 +121,16 @@ function checkMandatoryVariables {
 			return 0
 }
 
+function stopTomcat {
+    CMD="ssh $POLOPOLY_USER@$1 ps x -e | grep '$TOMCAT_HOME' | grep -v grep | cut -d ' ' -f 1"
+    TOMCAT_PID=`$CMD`
+    if [ "$TOMCAT_PID" ]; then
+        echo "Tomcat is still running on $FRONT, pid = $TOMCAT_PID"
+        sleepFor 10
+        TOMCAT_PID=`$CMD`
+        if [ "$TOMCAT_PID" ]; then
+            ssh $POLOPOLY_USER@$1 sudo kill -9 $TOMCAT_PID
+        fi
+    fi
+
+}

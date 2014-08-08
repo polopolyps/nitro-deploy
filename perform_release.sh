@@ -13,9 +13,14 @@ die_plain () {
     exit 1
 }
 
-[ "$#" -ge 1 ] || die_plain "Usage : $SCRIPT_NAME <target_env> [step_number]"
+usage () {
+die_plain "Usage : $SCRIPT_NAME <target_env> --step <step_number> [--dbupgrade] [--importsystem]";
+}
+
+[ "$#" -ge 1 ] || usage
 
 export DEPLOYENVIRONMENT="$1"
+
 # Very important variables that can cause release script to malfunction if missing
 SCRIPTPATH="$(cd "${0%/*}" 2>/dev/null; echo "$PWD"/"${0##*/}")"
 BASEPATH=`dirname $SCRIPTPATH`
@@ -23,7 +28,10 @@ CONFIG_FILE="$BASEPATH/config.sh"
 source $CONFIG_FILE
 
 # Redirect stdin and stdout to log file also
-exec > >(tee install.log)
+LOG_FILE="/tmp/deploy_${DEPLOYENVIRONMENT}_`date +%s`.log"
+inform "Logging to $LOG_FILE"
+
+exec > >(tee $LOG_FILE)
 exec 2>&1
 
 STARTINFO="Started "`basename $0`" at "`date`", environment: $DEPLOYENVIRONMENT"
@@ -43,8 +51,11 @@ if [ $JBOSS_REDEPLOY ] ; then
  #
  $BASEPATH/deploy_jboss_ear.sh || die "Failed jboss stop"
 
-else
- inform "Skipping (JBOSS_REDEPLOY or CLEAN_DB not set): Step 2. Stopping jboss."
+ if [ $UPGRADE_DB ] ; then
+    db_upgrade || die "Failed to upgrade database"
+ fi
+ else
+    inform "Skipping (JBOSS_REDEPLOY or CLEAN_DB not set): Step 2. Stopping jboss."
 fi
 }
 
@@ -83,6 +94,18 @@ $BASEPATH/deploy_varnish.sh || die "Failed deploy_varnish.sh"
 }
 
 
+db_upgrade () {
+
+inform "Performing database upgrade to $CONNECTION_URL"
+java -jar $RELEASEDIRECTORY/deployment-config/polopoly-cli.jar db-upgrade -c $CONNECTION_URL || die "Failed to upgrade DB"
+
+ssh $POLOPOLY_USER@$JBOSS_HOST $JBOSS_STOP_COMMAND
+[ $? -eq 0 ] || die "Failed to stop Jboss"
+
+ssh $POLOPOLY_USER@$JBOSS_HOST $JBOSS_START_COMMAND
+[ $? -eq 0 ] || die "Failed to stop Jboss"
+}
+
 runstep(){
 case "$1" in
 1) step1 ;;
@@ -96,18 +119,46 @@ case "$1" in
 *) echo "Invalid step number $1" ;;
 esac
 }
+
+unset POLOPOLY_IMPORTS
+unset UPGRADE_DB
+
+START=1
 NUM_STEPS=8
 
-if [ -n "$2" ]; then
- if ! [[ $2 =~ ^[0-9]+$ ]] || ! [[ $2 -ge 0 ]] || ! [[ $2 -le $NUM_STEPS ]]; then
-   echo "$2 is not a valid step number! (1-$NUM_STEPS)"
-   exit 1
- fi
+shift
+while [ $# -gt 0 ]
+do
+     key="$1"
+     shift
+     case $key in
+        --upgradedb)
+        export UPGRADE_DB="YES"
+        ;;
+        --importsystem)
+        export POLOPOLY_IMPORTS="YES"
+        ;;
+        --step)
+        START="$1"
+        if ! [[ $START =~ ^[0-9]+$ ]] || ! [[ $START -ge 0 ]] || ! [[ $START -le $NUM_STEPS ]]; then
+            die "$START is not a valid step number! (1-$NUM_STEPS)"
+        fi
+        shift;;
+        *) usage
+     esac
+done
+
+
+if [ $UPGRADE_DB ] ; then
+    inform "WARNING - Upgrading database is enabled"
+    getConfirmation || die "Release aborted"
+    inform "WARNING - Please confirm again that you want to upgrade the database"
+    getConfirmation || die "Release aborted"
+    export POLOPOLY_IMPORTS="YES"
 fi
 
-START="$2"; shift
-[ -z "$START" ] && START=1
 for i in $(seq "$START" $NUM_STEPS); do
  runstep $i
 done
+
 inform "The release is finished!"
