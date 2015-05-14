@@ -43,18 +43,27 @@ die () {
     exit 1
 }
 
-
 # Demands confirmation from user to continue
 function getConfirmation {
 	while true; do
 		read -p "Do you want to continue? (y/n):" yn
 			case $yn in
 			[Yy]* ) break;;
-	[Nn]* ) return 1;;
-	* ) echo "Please answer yes or no.";;
-	esac
-		done
-		return 0
+			[Nn]* ) return 1;;
+			* ) echo "Please answer yes or no.";;
+			esac
+	done
+	return 0
+}
+
+# Demands confirmation from user to continue
+function getAnswer {
+	while true; do
+		read -p "$1 : " ans
+		if [[ $ans = $2 ]] ; then return 0; fi;
+		echo "Please answer $2"
+   done
+   return 1
 }
 
 function waitForJboss {

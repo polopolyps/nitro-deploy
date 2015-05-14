@@ -40,14 +40,9 @@ inform "$STARTINFO"
 checkMandatoryVariables || die "Missing mandatory variable in config file \"$CONFIG_FILE\""
 
 
-step1(){
-inform "Step 1. Stopping backend tomcat servers"
-$BASEPATH/stop_backend_tomcats.sh || die "Failed stop_backend_tomcats"
-}
 
-step2(){
+deploy_jboss(){
 if [ $JBOSS_REDEPLOY ] ; then
- inform "Step 2. Redeploying Jboss artifacts"
  #
  $BASEPATH/deploy_jboss_ear.sh || die "Failed jboss stop"
 
@@ -55,44 +50,55 @@ if [ $JBOSS_REDEPLOY ] ; then
     db_upgrade || die "Failed to upgrade database"
  fi
  else
-    inform "Skipping (JBOSS_REDEPLOY or CLEAN_DB not set): Step 2. Stopping jboss."
+    inform "Skipping JBOSS Deploy (JBOSS_REDEPLOY or CLEAN_DB not set)"
 fi
 }
 
-step3(){
-#
-# DISTRIBUTE THE RELEASE ON THE BACKEND
-#
-inform "Step 3. Distributing backend webapps."
-$BASEPATH//deploy_backend_artifacts.sh || die "Failed deploy_admin"
+
+
+cache_disable() {
+
+for FRONT_IDX in ${!FRONT_SERVERS[@]}
+do
+  FRONT=${FRONT_SERVERS[$FRONT_IDX]}
+  VARNISH_NAME=${FRONT_VARNISH_NAMES[$FRONT_IDX]}
+
+  echo "Removing $FRONT from Varnish Pool"
+
+  setFrontinVarnish $VARNISH_NAME "sick"
+
+done
+
 }
 
-step4(){
-inform "Step 4. Distributing SOLR config files"
-$BASEPATH//deploy_solr_config.sh || die "Failed deploy_solr"
+
+cache_enable() {
+
+getAnswer "Please type 'yes' and press enter to enable the fronts in Varnish" "yes"
+
+for FRONT_IDX in ${!FRONT_SERVERS[@]}
+do
+  FRONT=${FRONT_SERVERS[$FRONT_IDX]}
+  VARNISH_NAME=${FRONT_VARNISH_NAMES[$FRONT_IDX]}
+
+  echo "Enable $FRONT in Varnish Pool"
+
+  setFrontinVarnish $VARNISH_NAME "healthy"
+
+done
+
 }
 
+# Demands confirmation from user to continue
+function setFrontinVarnish {
+    for VARNISH_SERVER in ${VARNISH_SERVERS[@]}
+    do
+        echo "Setting $1 to $2 on $VARNISH_SERVER"
+        ssh $POLOPOLY_USER@$VARNISH_SERVER sudo "\`which varnishadm\`" -T $VARNISH_ADM_URL -S $VARNISH_ADM_SECRET backend.set_health $1 $2
+        [ $? -eq 0 ] || die "Failed to set front $1 to $2"
+    done
 
-step5(){
-inform "Step 5. Importing project content."
-$BASEPATH/import_content.sh || die "Failed import_content"
 }
-
-step6(){
-inform "Step 6. Starting backend tomcat servers."
-$BASEPATH/start_backend_tomcats.sh || die "Failed start_remote_tomcats"
-}
-
-step7(){
-inform "Step 7. Stopping tomcat, distributing webapps and restarting tomcat on fronts."
-$BASEPATH/stop_deploy_restart_fronts.sh || die "Failed stop_deploy_restart_fronts"
-}
-
-step8(){
-inform "Step 8. Deploying varnish config file"
-$BASEPATH/deploy_varnish.sh || die "Failed deploy_varnish.sh"
-}
-
 
 db_upgrade () {
 
@@ -106,25 +112,28 @@ ssh $POLOPOLY_USER@$JBOSS_HOST $JBOSS_START_COMMAND
 [ $? -eq 0 ] || die "Failed to stop Jboss"
 }
 
-runstep(){
-case "$1" in
-1) step1 ;;
-2) step2 ;;
-3) step3 ;;
-4) step4 ;;
-5) step5 ;;
-6) step6 ;;
-7) step7 ;;
-8) step8 ;;
-*) echo "Invalid step number $1" ;;
-esac
-}
 
 unset POLOPOLY_IMPORTS
 unset UPGRADE_DB
 
 START=1
-NUM_STEPS=8
+STEPS=("warm_cache.sh" "cache_disable" "stop_backend_tomcats.sh" "deploy_jboss" "deploy_backend_artifacts.sh"  "deploy_solr_config.sh"  "import_content.sh"  "start_backend_tomcats.sh"  "stop_deploy_restart_fronts.sh" "deploy_varnish.sh" "cache_enable")
+STEP_DESCRIPTIONS=(
+ "Warm existing Varnish Caches"
+ "Put Varnish into Deploy Mode"
+ "Stopping backend tomcat servers"
+ "Redeploying Jboss artifacts"
+ "Distributing backend webapps."
+ "Distributing SOLR config files"
+ "Importing project content."
+ "Starting backend tomcat servers."
+ "Stopping tomcat, distributing webapps and restarting tomcat on fronts."
+ "Deploying varnish config file"
+ "Put Varnish into Normal Mode"
+)
+
+
+NUM_STEPS=${#STEPS[@]}
 
 shift
 while [ $# -gt 0 ]
@@ -141,7 +150,7 @@ do
         --step)
         START="$1"
         if ! [[ $START =~ ^[0-9]+$ ]] || ! [[ $START -ge 0 ]] || ! [[ $START -le $NUM_STEPS ]]; then
-            die "$START is not a valid step number! (1-$NUM_STEPS)"
+            die "$START is not a valid step number! (0-$NUM_STEPS)"
         fi
         shift;;
         *) usage
@@ -157,8 +166,19 @@ if [ $UPGRADE_DB ] ; then
     export POLOPOLY_IMPORTS="YES"
 fi
 
-for i in $(seq "$START" $NUM_STEPS); do
- runstep $i
+START_INDEX=$(($START - 1))
+END_INDEX=$((NUM_STEPS - 1))
+
+for i in $(seq "$START_INDEX" $END_INDEX); do
+ STEP_NUM=$(($i + 1))
+ echo "Step $STEP_NUM : ${STEP_DESCRIPTIONS[$i]}"
+ STEP="${STEPS[$i]}"
+ SCRIPT_FILE="$BASEPATH/$STEP"
+ if [ -f $SCRIPT_FILE ]; then
+    $SCRIPT_FILE || die "Error executing step $STEP_NUM in $SCRIPT_FILE"
+ else
+    eval $STEP || die "Error Calling function ${STEPS}"
+ fi
 done
 
 inform "The release is finished!"
