@@ -7,8 +7,13 @@ source $CONFIG_FILE
 
 unzip -oq $RELEASEDIRECTORY/deployment-config/config.zip -d $RELEASEDIRECTORY/deployment-config/config
 
-ssh $POLOPOLY_USER@$JBOSS_HOST $JBOSS_STOP_COMMAND
-[ $? -eq 0 ] || die "Failed to stop Jboss"
+curl $CONNECTION_URL &>/dev/null
+if [ $? -eq 0 ]
+then
+    echo " Jboss is up!"
+    ssh $POLOPOLY_USER@$JBOSS_HOST $JBOSS_STOP_COMMAND
+    [ $? -eq 0 ] || die "Failed to stop Jboss"
+fi
 
 # Remove the old instances first, just in case the new ones have a different name/version
 ssh $POLOPOLY_USER@$JBOSS_HOST rm -rf $JBOSS_HOME/server/default/tmp
