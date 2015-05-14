@@ -130,7 +130,9 @@ function checkMandatoryVariables {
 			return 0
 }
 
-function stopTomcat {
+function waitForTomcat {
+    echo "Checking $1 is stopped"
+
     CMD="ssh $POLOPOLY_USER@$1 ps x -e | grep '$TOMCAT_HOME' | grep -v grep | cut -d ' ' -f 1"
     TOMCAT_PID=`$CMD`
     if [ "$TOMCAT_PID" ]; then
@@ -142,4 +144,20 @@ function stopTomcat {
         fi
     fi
 
+}
+
+function stopTomcat {
+  echo "Stopping tomcat on server $1"
+
+  ssh $POLOPOLY_USER@$1 "$TOMCAT_STOP_COMMAND"
+
+  [ $? -eq 0 ] || die "Failed to stop tomcat on remote server ($FRONT)"
+}
+
+function startTomcat {
+  echo "Starting tomcat on $1"
+
+  ssh $POLOPOLY_USER@$1 "$TOMCAT_START_COMMAND"
+
+  [ $? -eq 0 ] || die "Failed to stop tomcat on remote server ($FRONT)"
 }

@@ -19,10 +19,10 @@ do
 
   echo "Deploying indexes $INDEXES to $TYPE $HOST"
 
-  scp -Brp $SOLR_HOME_SRC/indexes/$INDEXES $POLOPOLY_USER@$HOST:$SOLR_HOME/
+  scp -Brp $SOLR_HOME_SRC/$INDEXES $POLOPOLY_USER@$HOST:$SOLR_HOME/
 
-  echo "Deploying config $SOLR_HOME_SRC/config/$TYPE to $TYPE $HOST"
-  scp -Brp $SOLR_HOME_SRC/config/$TYPE/* $POLOPOLY_USER@$HOST:$SOLR_HOME/
+  ##echo "Deploying config $SOLR_HOME_SRC/config/$TYPE to $TYPE $HOST"
+  ##scp -Brp $SOLR_HOME_SRC/config/$TYPE/* $POLOPOLY_USER@$HOST:$SOLR_HOME/
 
   [ $? -eq 0 ] || die "Failed to deploy index config"
 

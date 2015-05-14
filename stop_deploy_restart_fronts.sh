@@ -16,21 +16,14 @@ unzip -oq $RELEASEDIRECTORY/deployment-config/config.zip -d $RELEASEDIRECTORY/de
 for FRONT_IDX in ${!FRONT_SERVERS[@]}
 do
   FRONT=${FRONT_SERVERS[$FRONT_IDX]}
-
-  echo "Processing front server $FRONT"
-
-  ssh $POLOPOLY_USER@$FRONT "sudo /etc/init.d/$TOMCAT_NAME stop $POLOPOLY_USER"
-
-  [ $? -eq 0 ] || die "Failed to stop tomcat on remote server ($FRONT)"
-
+  stopTomcat "$FRONT"
 done
 
 
 for FRONT_IDX in ${!FRONT_SERVERS[@]}
 do
     FRONT=${FRONT_SERVERS[$FRONT_IDX]}
-    echo "Checking $FRONT is stopped"
-    stopTomcat "$FRONT"
+    waitForTomcat "$FRONT"
 done
 
 for FRONT_IDX in ${!FRONT_SERVERS[@]}
@@ -57,9 +50,7 @@ do
       fi
   done
 
-  ssh $POLOPOLY_USER@$FRONT sudo /etc/init.d/$TOMCAT_NAME start $POLOPOLY_USER
-
-  [ $? -eq 0 ] || die "Failed to restart tomcat"
+  startTomcat "$FRONT"
 
 done
 
