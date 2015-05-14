@@ -10,7 +10,7 @@ source $CONFIG_FILE
 for SERVER in ${BACKEND_SERVERS[@]}
 do
   echo "Cleaning tomcats folder on ($SERVER)"
-  ssh $POLOPOLY_USER@$SERVER "rm -rf $TOMCAT_WEBAPPS/*"
+  ssh $POLOPOLY_USER@$SERVER "rm -rf $TOMCAT_HOME/webapps/*"
   [ $? -eq 0 ] || die "Failed to clean tomcat folder ($SERVER)"
 
   for CONFIG_FILE in ${TOMCAT_CONFIG_FILES[@]}
