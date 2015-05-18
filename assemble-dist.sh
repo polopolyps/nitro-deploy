@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 ####################################################################
 # Use this script to build the distribution files from the source folder
 ####################################################################

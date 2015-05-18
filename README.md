@@ -35,7 +35,7 @@ sudo varnishadm -T $VARNISH_ADM_URL -S $VARNISH_ADM_SECRET backend.set_health $1
 To disable this feature, just set the list of Varnish hosts to be empty. 
 
 
-e.g. for Jboss, configure run.conf:
+For Jboss, configure run.conf:
 
 Add the following to JAVA_OPTS
 -DconnectionPropertiesFile=/home/polopoly/config/connection.properties
@@ -43,8 +43,14 @@ Add the following to JAVA_OPTS
 -Dp.connectionPropertiesUrl=http://cm-server:8081/connection-properties/connection.properties
 -Djava.rmi.server.hostname=cm-server
 
-For JBOSS ensure that it is started with the options:
--b 0.0.0.0 -Djboss.server.log.dir=<logfolder>
+Also, For JBOSS ensure that it is started with the correct options, this should be achieved by including the above line in $JBOSS_HOME/bin/run.sh 
+ and not by setting in the profile settings (unless you set it in /etc/profile).
+
+exports JBOSS_OPTS="-b 0.0.0.0 -Djboss.server.log.dir=<logfolder>"
+
+ 
+
+
 
 For tomcat, ensure that it is started with the following parameters set,
 preferably by changing e.g. /etc/tomcat-init.cfg or /etc/default/tomcat7 or in tomcat/bin/setenv.sh
@@ -52,12 +58,11 @@ preferably by changing e.g. /etc/tomcat-init.cfg or /etc/default/tomcat7 or in t
 For all tomcat instances:
 -Dp.connectionPropertiesUrl=http://cm-server:8081/connection-properties/connection.properties
 
-For tomcat instances running SOLR:
+For tomcat instances running SOLR (all fronts and the CM Server)
 -Dsolr.solr.home=/opt/filedata/solr
--Dsolr.is.slave=true (for a slave solr tomcat)
--Dsolr.is.master=true (for a master solr tomcat)
 
-For tomcat instance running the statistics-server
+
+For tomcat instance running the statistics-server, then also include the extra parameter:
 -DstatisticsBaseDirectory=/opt/filedata
 
 
@@ -70,6 +75,11 @@ for the new profile to ensure that they match the target environment.
 
 Usage
 =====
+
+Before execution, always ensure that you have downloaded the latest install scripts from the
+source folder /ci-setup/nitro-deploy. All scripts and configuration will be stored in this folder.
+All changes must be made via source-control.
+
 Use the assemble-dist.sh script to create the necessary build artifacts from the source folder.
 NB: It is currently only possible to create one set of build artifacts at a time. 
 
@@ -77,14 +87,14 @@ e.g. ./assemble-dist.sh polopolydev
 
 where polopolydev is the profile to use.
 
-The assemble-dist.sh script will create all the necessary artefects in the source folders target/dist 
+The assemble-dist.sh script will create all the necessary artifacts in the source folders target/dist 
 subfolder. The contents of this folder could be manually zipped up and copied to the target system if
 required, or moved to a folder specific to that release. 
 
 This script will be executed from the same server that the assemble-dist.sh is executed from.
 
 If the production system is not accessible, then you will need to FTP the the distribution into
-a folder available on the production server that is capable of distributing the artefacts to all
+a folder available on the production server that is capable of distributing the artifacts to all
 other servers.
 
 The assemble-dist.sh accepts a single parameter, which is the name of the profile to build.
@@ -93,9 +103,16 @@ Once the distribution has been created and is in the location specified by the r
 configuration (see variable RELEASEDIRECTORY in the config files) then the perform_release.sh
 script can be executed.
 
-It accepts two parameters
-Param1 : The profile to use, there must be a similarly named config file in the same folder.
-Param2 : Optional Starting Step number. Useful if a step fails for some reason and you want to restart from where it left off.
+The syntax for invoking the script is:
+
+perform_release.sh <target_env> {--step <step_number>} {--dbupgrade} {--importsystem}
+
+Where <target_env> must map to an existing maven build profile. There must also exist a environment config
+file called <target_env>.config in the same folder as the script.
+
+--step is an optional parameter which can be used to run the process from the specified step.
+--dbupgrade is an optional parameter which will only be used to upgrade the database when the polopoly version changes
+--importsystem is an optional parameter which will force the deployment script to re-import the polopoly system content
+
 
 For documentation on the config files see the comments in polopolydev.config
-

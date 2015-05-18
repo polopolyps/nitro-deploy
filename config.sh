@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 ################################################################
 # This script will source the correct configuration file 
 # for the current environment.
@@ -15,6 +15,7 @@ if [ -z "$DEPLOYENVIRONMENT" ]
     exit 1
 fi
 
+source $DEPLOY_DIR/common.config
 source $DEPLOY_DIR/$DEPLOYENVIRONMENT.config
 
 CONFIG_LOADED=true
@@ -42,18 +43,27 @@ die () {
     exit 1
 }
 
-
 # Demands confirmation from user to continue
 function getConfirmation {
 	while true; do
 		read -p "Do you want to continue? (y/n):" yn
 			case $yn in
 			[Yy]* ) break;;
-	[Nn]* ) return 1;;
-	* ) echo "Please answer yes or no.";;
-	esac
-		done
-		return 0
+			[Nn]* ) return 1;;
+			* ) echo "Please answer yes or no.";;
+			esac
+	done
+	return 0
+}
+
+# Demands confirmation from user to continue
+function getAnswer {
+	while true; do
+		read -p "$1 : " ans
+		if [[ $ans = $2 ]] ; then return 0; fi;
+		echo "Please answer $2"
+   done
+   return 1
 }
 
 function waitForJboss {
@@ -120,3 +130,34 @@ function checkMandatoryVariables {
 			return 0
 }
 
+function waitForTomcat {
+    echo "Checking $1 is stopped"
+
+    CMD="ssh $POLOPOLY_USER@$1 ps x -e | grep '$TOMCAT_HOME' | grep -v grep | cut -d ' ' -f 1"
+    TOMCAT_PID=`$CMD`
+    if [ "$TOMCAT_PID" ]; then
+        echo "Tomcat is still running on $FRONT, pid = $TOMCAT_PID"
+        sleepFor 10
+        TOMCAT_PID=`$CMD`
+        if [ "$TOMCAT_PID" ]; then
+            ssh $POLOPOLY_USER@$1 sudo kill -9 $TOMCAT_PID
+        fi
+    fi
+
+}
+
+function stopTomcat {
+  echo "Stopping tomcat on server $1"
+
+  ssh $POLOPOLY_USER@$1 "$TOMCAT_STOP_COMMAND"
+
+  [ $? -eq 0 ] || die "Failed to stop tomcat on remote server ($FRONT)"
+}
+
+function startTomcat {
+  echo "Starting tomcat on $1"
+
+  ssh $POLOPOLY_USER@$1 "$TOMCAT_START_COMMAND"
+
+  [ $? -eq 0 ] || die "Failed to stop tomcat on remote server ($FRONT)"
+}
