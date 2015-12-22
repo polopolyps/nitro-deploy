@@ -68,7 +68,7 @@ function getAnswer {
 
 function waitForJboss {
     SLEEP_TIME=5
-    MAX_TRIES=12
+    MAX_TRIES=60
     echo -n "Waiting for for Jboss to start: "
     while [ 1 = 1 ]; do
       [ $MAX_TRIES -eq 0 ] && echo " max wait exceeded. halting deploy!" && exit 1
@@ -76,7 +76,7 @@ function waitForJboss {
       echo -n "."
       curl $CONNECTION_URL &>/dev/null
       [ $? -eq 0 ] && echo " Jboss is up!"  && return 0
-      sleep 5
+      sleep $SLEEP_TIME
     done
 }
 
@@ -131,7 +131,10 @@ function checkMandatoryVariables {
 }
 
 function waitForTomcat {
-    echo "Checking $1 is stopped"
+    getTomcatInstance "$2"
+
+    echo "Checking $TOMCAT_INSTANCE tomcat instance on $1 / $TOMCAT_HOME"
+
 
     CMD="ssh $POLOPOLY_USER@$1 ps x -e | grep '$TOMCAT_HOME' | grep -v grep | cut -d ' ' -f 1"
     TOMCAT_PID=`$CMD`
@@ -147,17 +150,35 @@ function waitForTomcat {
 }
 
 function stopTomcat {
-  echo "Stopping tomcat on server $1"
+  getTomcatInstance "$2"
+
+
+  echo "Stopping $TOMCAT_INSTANCE tomcat instance on $1 / $TOMCAT_HOME"
 
   ssh $POLOPOLY_USER@$1 "$TOMCAT_STOP_COMMAND"
 
-  [ $? -eq 0 ] || die "Failed to stop tomcat on remote server ($FRONT)"
+  [ $? -eq 0 ] || die "Failed to stop tomcat $TOMCAT_INSTANCE on remote server ($1)"
 }
 
+function getTomcatInstance {
+  TOMCAT_INSTANCE=$1
+  i="TOMCAT_INSTANCES_${TOMCAT_INSTANCE}_home"
+  TOMCAT_HOME="${!i}"
+
+  i="TOMCAT_INSTANCES_${TOMCAT_INSTANCE}_shutdown"
+  TOMCAT_STOP_COMMAND="${!i}"
+
+  i="TOMCAT_INSTANCES_${TOMCAT_INSTANCE}_startup"
+  TOMCAT_START_COMMAND="${!i}"
+}
+
+
 function startTomcat {
-  echo "Starting tomcat on $1"
+  getTomcatInstance "$2"
+
+  echo "Stopping $TOMCAT_INSTANCE tomcat instance on $1 / $TOMCAT_HOME"
 
   ssh $POLOPOLY_USER@$1 "$TOMCAT_START_COMMAND"
 
-  [ $? -eq 0 ] || die "Failed to stop tomcat on remote server ($FRONT)"
+  [ $? -eq 0 ] || die "Failed to start tomcat $TOMCAT_INSTANCE on remote server ($1)"
 }

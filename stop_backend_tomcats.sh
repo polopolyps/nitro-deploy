@@ -8,6 +8,10 @@ source $CONFIG_FILE
 
 for SERVER in ${BACKEND_SERVERS[@]}
 do
-  stopTomcat "$SERVER"
-  waitForTomcat "$SERVER"
+    IFS=';' read -ra DATA <<< "$SERVER"
+    HOST=${DATA[0]}
+    TOMCAT_INSTANCE=${DATA[1]}
+
+    stopTomcat "$HOST" "$TOMCAT_INSTANCE"
+    waitForTomcat "$HOST" "$TOMCAT_INSTANCE"
 done
