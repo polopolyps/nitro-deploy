@@ -58,14 +58,13 @@ fi
 
 cache_disable() {
 
-for FRONT_IDX in ${!FRONT_SERVERS[@]}
+for FRONT_IDX in ${!FRONT_VARNISH_NAMES[@]}
 do
-  FRONT=${FRONT_SERVERS[$FRONT_IDX]}
-  VARNISH_NAME=${FRONT_VARNISH_NAMES[$FRONT_IDX]}
+    VARNISH_NAME=${FRONT_VARNISH_NAMES[$FRONT_IDX]}
 
-  echo "Removing $FRONT from Varnish Pool"
+    echo "Removing $VARNISH_NAME from Varnish Pool"
 
-  setFrontinVarnish $VARNISH_NAME "sick"
+    setFrontinVarnish $VARNISH_NAME "sick"
 
 done
 
@@ -76,14 +75,13 @@ cache_enable() {
 
 getAnswer "Please type 'yes' and press enter to enable the fronts in Varnish" "yes"
 
-for FRONT_IDX in ${!FRONT_SERVERS[@]}
+for FRONT_IDX in ${!FRONT_VARNISH_NAMES[@]}
 do
-  FRONT=${FRONT_SERVERS[$FRONT_IDX]}
-  VARNISH_NAME=${FRONT_VARNISH_NAMES[$FRONT_IDX]}
+    VARNISH_NAME=${FRONT_VARNISH_NAMES[$FRONT_IDX]}
 
-  echo "Enable $FRONT in Varnish Pool"
+    echo "Enable $VARNISH_NAME in Varnish Pool"
 
-  setFrontinVarnish $VARNISH_NAME "healthy"
+    setFrontinVarnish $VARNISH_NAME "healthy"
 
 done
 

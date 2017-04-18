@@ -8,5 +8,8 @@ source $CONFIG_FILE
 
 for SERVER in ${BACKEND_SERVERS[@]}
 do
-  startTomcat "$SERVER"
+    IFS=';' read -ra DATA <<< "$SERVER"
+    HOST=${DATA[0]}
+    TOMCAT_INSTANCE=${DATA[1]}
+    startTomcat "$HOST" "$TOMCAT_INSTANCE"
 done

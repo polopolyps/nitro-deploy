@@ -17,7 +17,9 @@ do
   TYPE=${DATA[1]}
   INDEXES=${DATA[2]}
 
-  echo "Deploying indexes $INDEXES to $TYPE $HOST"
+  getTomcatInstance "${DATA[3]}"
+
+  echo "Deploying indexes $INDEXES to $TYPE $HOST on tomcat instance $TOMCAT_INSTANCE"
 
   scp -Brp $SOLR_HOME_SRC/$INDEXES $POLOPOLY_USER@$HOST:$SOLR_HOME/
 

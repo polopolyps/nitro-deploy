@@ -68,9 +68,8 @@ For tomcat instance running the statistics-server, then also include the extra p
 
 Profiles
 ========
-Currently, only a profile for polopolydev has been created. This should be duplicated for prod, staging.
-This can be done by copying the file polopolydev.config to prod.config. You will then need to review the settings
-for the new profile to ensure that they match the target environment.
+common.config is the base settings for all environments - it is good practice to try and keep them similarly configured.
+For each profile, just add the settings that you need to change from common.config.
 
 
 Usage
